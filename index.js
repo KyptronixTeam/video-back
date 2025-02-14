@@ -14,7 +14,7 @@ const io = new Server(server, {
 });
 
 // Store active calls
-const activeCalls = {}; // { userId: clientId }
+const activeCalls = {}; // { userId: socketId }
 
 io.on("connection", (socket) => {
   console.log("User connected:", socket.id);
