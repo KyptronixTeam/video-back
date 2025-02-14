@@ -13,30 +13,26 @@ const io = new Server(server, {
   },
 });
 
-// Store users per room
-const rooms = {};
+// Store active calls
+const activeCalls = {}; // { userId: clientId }
 
 io.on("connection", (socket) => {
   console.log("User connected:", socket.id);
 
-  socket.on("join-room", (roomId) => {
-    if (!rooms[roomId]) {
-      rooms[roomId] = [];
-    }
-
-    if (rooms[roomId].length >= 4) {
-      socket.emit("room-full");
+  socket.on("call-user", ({ userId, clientId }) => {
+    if (activeCalls[userId]) {
+      socket.emit("user-busy");
       return;
     }
 
-    rooms[roomId].push(socket.id);
-    socket.join(roomId);
+    activeCalls[userId] = clientId;
+    activeCalls[clientId] = userId;
 
-    // Send full user list to all users in the room
-    io.to(roomId).emit("users", rooms[roomId]);
+    io.to(userId).emit("incoming-call", { from: clientId });
+  });
 
-    // Notify others in the room
-    socket.to(roomId).emit("user-joined", socket.id);
+  socket.on("accept-call", ({ userId, clientId }) => {
+    io.to(clientId).emit("call-accepted", { from: userId });
   });
 
   socket.on("offer", (data) => {
@@ -52,21 +48,11 @@ io.on("connection", (socket) => {
   });
 
   socket.on("disconnect", () => {
-    let roomId = null;
-
-    // Find the user's room and remove them
-    for (const [key, users] of Object.entries(rooms)) {
-      if (users.includes(socket.id)) {
-        roomId = key;
-        rooms[key] = users.filter((id) => id !== socket.id);
-        break;
+    Object.keys(activeCalls).forEach((key) => {
+      if (activeCalls[key] === socket.id) {
+        delete activeCalls[key];
       }
-    }
-
-    if (roomId) {
-      io.to(roomId).emit("users", rooms[roomId]); // Update remaining users
-      io.to(roomId).emit("user-disconnected", socket.id);
-    }
+    });
 
     console.log("User disconnected:", socket.id);
   });
