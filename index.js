@@ -32,10 +32,10 @@ io.on("connection", (socket) => {
     rooms[roomId].push(socket.id);
     socket.join(roomId);
 
-    // Send existing users to the newly joined user
-    socket.emit("users", rooms[roomId].filter((id) => id !== socket.id));
+    // Send full user list to all users in the room
+    io.to(roomId).emit("users", rooms[roomId]);
 
-    // Notify other users in the room
+    // Notify others in the room
     socket.to(roomId).emit("user-joined", socket.id);
   });
 
@@ -64,8 +64,8 @@ io.on("connection", (socket) => {
     }
 
     if (roomId) {
-      io.to(roomId).emit("user-disconnected", socket.id);
       io.to(roomId).emit("users", rooms[roomId]); // Update remaining users
+      io.to(roomId).emit("user-disconnected", socket.id);
     }
 
     console.log("User disconnected:", socket.id);
